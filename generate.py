@@ -16,16 +16,22 @@ collection = client.get_or_create_collection(name="tcs_report")
 def retrieve(query, n_results=3):
     query_embedding = model.encode(query).tolist()
     results = collection.query(query_embeddings=[query_embedding], n_results=n_results)
-    return results['documents'][0]
+    docs = results['documents'][0]
+    ids = results['ids'][0]  # chunk IDs like "chunk_42"
+    return docs, ids
 
 def generate_answer(query):
-    chunks = retrieve(query)
-    context = "\n\n".join(chunks)
+    chunks, ids = retrieve(query)
     
-    prompt = f"""You are a financial analyst assistant. Answer the question using ONLY the context below. If the answer isn't in the context, say so clearly. Do not make up numbers.
+    # Build context WITH labels so the model can cite them
+    labeled_context = "\n\n".join(
+        [f"[Source: {ids[i]}]\n{chunks[i]}" for i in range(len(chunks))]
+    )
+    
+    prompt = f"""You are a financial analyst assistant. Answer the question using ONLY the context below. Cite which source(s) you used in your answer using their labels (e.g. "According to chunk_42..."). If the answer isn't in the context, say so clearly. Do not make up numbers.
 
 Context:
-{context}
+{labeled_context}
 
 Question: {query}
 
@@ -38,7 +44,15 @@ Answer:"""
     
     return response.text
 
-query = "What was TCS's revenue growth?"
-answer = generate_answer(query)
-print(f"Question: {query}\n")
-print(f"Answer: {answer}")
+test_questions = [
+    "What was TCS's revenue growth?",
+    "Who is the CEO of TCS?",
+    "What are TCS's main business segments?",
+    "What was the operating margin?",
+]
+
+for q in test_questions:
+    answer = generate_answer(q)
+    print(f"Q: {q}")
+    print(f"A: {answer}\n")
+    print("-" * 50)
