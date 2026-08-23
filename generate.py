@@ -44,15 +44,7 @@ Answer:"""
     
     return response.text
 
-test_questions = [
-    "What was TCS's revenue growth?",
-    "Who is the CTO of TCS?",
-    "What are TCS's main business segments?",
-    "What was the operating margin?",
-]
-
-for q in test_questions:
-    answer = generate_answer(q)
-    print(f"Q: {q}")
-    print(f"A: {answer}\n")
-    print("-" * 50)
+query = "What was TCS's revenue growth?"
+answer = generate_answer(query)
+print(f"Question: {query}\n")
+print(f"Answer: {answer}")
