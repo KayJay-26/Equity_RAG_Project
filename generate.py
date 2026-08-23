@@ -46,7 +46,7 @@ Answer:"""
 
 test_questions = [
     "What was TCS's revenue growth?",
-    "Who is the CEO of TCS?",
+    "Who is the CTO of TCS?",
     "What are TCS's main business segments?",
     "What was the operating margin?",
 ]
