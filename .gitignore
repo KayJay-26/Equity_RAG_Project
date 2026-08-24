@@ -4,3 +4,4 @@ chroma_db/
 __pycache__/
 .env
 chroma_db/chroma.sqlite3
+TCS_Annual_report.pdf
