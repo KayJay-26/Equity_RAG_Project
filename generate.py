@@ -44,7 +44,8 @@ Answer:"""
     
     return response.text
 
-query = "What was TCS's revenue growth?"
-answer = generate_answer(query)
-print(f"Question: {query}\n")
-print(f"Answer: {answer}")
+if __name__ == "__main__":
+    query = "What was TCS's revenue growth?"
+    answer = generate_answer(query)
+    print(f"Question: {query}\n")
+    print(f"Answer: {answer}")
