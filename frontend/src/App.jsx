@@ -144,7 +144,21 @@ export default function App() {
                 </div>
               ) : (
                 <div key={i} style={S.botRow}>
-                  <div style={{ ...S.botText, color: m.error ? '#b4483c' : '#2c2925' }}>{m.text}</div>
+                  <div style={{ ...S.botText, color: m.error ? '#b4483c' : '#2c2925' }}>
+  <ReactMarkdown
+    components={{
+      p: ({children}) => <p style={{margin: '0 0 12px 0'}}>{children}</p>,
+      ul: ({children}) => <ul style={{margin: '0 0 12px 0', paddingLeft: 22}}>{children}</ul>,
+      li: ({children}) => <li style={{marginBottom: 6}}>{children}</li>,
+      strong: ({children}) => <strong style={{fontWeight: 600}}>{children}</strong>,
+      h1: ({children}) => <h3 style={{fontSize: 17, margin: '16px 0 8px'}}>{children}</h3>,
+      h2: ({children}) => <h3 style={{fontSize: 16, margin: '16px 0 8px'}}>{children}</h3>,
+      h3: ({children}) => <h3 style={{fontSize: 15, margin: '14px 0 8px'}}>{children}</h3>,
+    }}
+  >
+    {m.text}
+  </ReactMarkdown>
+</div>
                   {m.sources?.length > 0 && (
                     <div style={S.sources}>
                       {m.sources.map((s) => <span key={s} style={S.sourceTag}>{s}</span>)}
