@@ -50,15 +50,17 @@ def chunk_text(text, chunk_size=1000, overlap=100):
     return chunks
 
 
-def index_document(filename, text):
-    """Embed and store every chunk of a document, tagged with its filename."""
+def index_document(filename, text, batch_size=64):
+    """Embed and store chunks in batches — much faster than one at a time."""
     chunks = chunk_text(text)
-    for i, chunk in enumerate(chunks):
+    for start in range(0, len(chunks), batch_size):
+        batch = chunks[start:start + batch_size]
+        embeddings = embed_model.encode(batch, batch_size=batch_size).tolist()
         collection.add(
-            ids=[f"{filename}::chunk_{i}"],
-            embeddings=[embed_model.encode(chunk).tolist()],
-            documents=[chunk],
-            metadatas=[{"source_file": filename, "chunk_index": i}],
+            ids=[f"{filename}::chunk_{start + i}" for i in range(len(batch))],
+            embeddings=embeddings,
+            documents=batch,
+            metadatas=[{"source_file": filename, "chunk_index": start + i} for i in range(len(batch))],
         )
     return len(chunks)
 

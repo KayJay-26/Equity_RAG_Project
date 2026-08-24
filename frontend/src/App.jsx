@@ -59,6 +59,10 @@ export default function App() {
   const send = async (text) => {
     const q = (text ?? input).trim();
     if (!q || loading) return;
+    if (documents.length === 0) {
+      showToast('Upload a document first');
+      return;
+    }
     setInput('');
     setMessages((m) => [...m, { role: 'user', text: q }]);
     setLoading(true);
@@ -77,25 +81,22 @@ export default function App() {
   };
 
   const suggestions = [
-    { title: 'Revenue growth', sub: 'year-over-year and constant currency' },
-    { title: 'Operating margin', sub: 'EBIT and net profit margins' },
-    { title: 'Cash position', sub: 'operating cash flow and conversion' },
-    { title: 'Compare documents', sub: 'revenue across uploaded reports' },
+    'What was the revenue growth this year?',
+    'Summarise the operating and net margins.',
+    'What is the operating cash flow and cash conversion?',
+    'What are the main risks disclosed?',
   ];
 
   return (
     <div style={S.app}>
       <aside style={S.sidebar}>
-        <div style={S.brand}>
-          <div style={S.logo}>ER</div>
-          <span style={S.brandText}>Equity Research</span>
-        </div>
+        <div style={S.brand}>Equity Research</div>
 
-        <button style={S.newChat} onClick={() => setMessages([])}>+ New chat</button>
+        <button style={S.newChat} onClick={() => setMessages([])}>New conversation</button>
 
-        <div style={S.sectionLabel}>Documents ({documents.length})</div>
+        <div style={S.sectionLabel}>Documents</div>
         <div style={S.docList}>
-          {documents.length === 0 && <div style={S.empty}>No documents indexed</div>}
+          {documents.length === 0 && <div style={S.empty}>Nothing indexed yet</div>}
           {documents.map((d) => (
             <div key={d.filename} style={S.docItem}>
               <div style={S.docInfo}>
@@ -115,52 +116,44 @@ export default function App() {
           onChange={(e) => uploadFile(e.target.files[0])}
         />
         <button style={S.uploadBtn} onClick={() => fileRef.current?.click()} disabled={uploading}>
-          {uploading ? 'Indexing…' : '＋ Upload PDF'}
+          {uploading ? 'Indexing…' : 'Upload PDF'}
         </button>
       </aside>
 
       <main style={S.main}>
         {messages.length === 0 ? (
           <div style={S.welcome}>
-            <div style={S.logoLarge}>ER</div>
             <h1 style={S.h1}>Equity Research Assistant</h1>
             <p style={S.sub}>
               {documents.length === 0
-                ? 'Upload an annual report to get started.'
+                ? 'Upload an annual report to begin.'
                 : `Ask anything across ${documents.length} indexed document${documents.length > 1 ? 's' : ''}.`}
             </p>
             <div style={S.cards}>
               {suggestions.map((s) => (
-                <button key={s.title} style={S.card} onClick={() => send(`What was the ${s.title.toLowerCase()}?`)}>
-                  <div style={S.cardTitle}>{s.title}</div>
-                  <div style={S.cardSub}>{s.sub}</div>
-                </button>
+                <button key={s} style={S.card} onClick={() => send(s)}>{s}</button>
               ))}
             </div>
           </div>
         ) : (
           <div style={S.chat}>
             {messages.map((m, i) => (
-              <div key={i} style={S.msgRow}>
-                <div style={m.role === 'user' ? S.avatarUser : S.avatarBot}>
-                  {m.role === 'user' ? 'You' : 'ER'}
+              m.role === 'user' ? (
+                <div key={i} style={S.userRow}>
+                  <div style={S.userBubble}>{m.text}</div>
                 </div>
-                <div style={S.msgBody}>
-                  <div style={{ ...S.msgText, color: m.error ? '#f87171' : '#e8e8e8' }}>{m.text}</div>
+              ) : (
+                <div key={i} style={S.botRow}>
+                  <div style={{ ...S.botText, color: m.error ? '#b4483c' : '#2c2925' }}>{m.text}</div>
                   {m.sources?.length > 0 && (
                     <div style={S.sources}>
                       {m.sources.map((s) => <span key={s} style={S.sourceTag}>{s}</span>)}
                     </div>
                   )}
                 </div>
-              </div>
+              )
             ))}
-            {loading && (
-              <div style={S.msgRow}>
-                <div style={S.avatarBot}>ER</div>
-                <div style={S.thinking}>Searching documents…</div>
-              </div>
-            )}
+            {loading && <div style={S.botRow}><div style={S.thinking}>Searching documents…</div></div>}
             <div ref={endRef} />
           </div>
         )}
@@ -176,7 +169,7 @@ export default function App() {
             />
             <button style={S.sendBtn} onClick={() => send()} disabled={loading || !input.trim()}>↑</button>
           </div>
-          <div style={S.disclaimer}>Answers are grounded in uploaded documents. Verify figures against the source.</div>
+          <div style={S.disclaimer}>Answers are grounded in your uploaded documents. Verify figures against the source.</div>
         </div>
       </main>
 
@@ -185,63 +178,62 @@ export default function App() {
   );
 }
 
+const SERIF = 'Georgia, "Times New Roman", serif';
+const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const ACCENT = '#c15f3c';
+const INK = '#2c2925';
+const MUTED = '#6b665f';
+
 const S = {
-  app: { display: 'flex', height: '100vh', background: '#0d0d0d', color: '#e8e8e8',
-         fontFamily: 'system-ui, -apple-system, sans-serif', overflow: 'hidden' },
-  sidebar: { width: 260, background: '#111', borderRight: '1px solid #222', display: 'flex',
-             flexDirection: 'column', padding: 16, gap: 12 },
-  brand: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
-  logo: { width: 30, height: 30, borderRadius: '50%', background: '#e8a33d', color: '#111',
-          display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12 },
-  brandText: { fontSize: 14, fontWeight: 600 },
-  newChat: { background: 'transparent', border: '1px solid #2a2a2a', color: '#e8e8e8',
-             padding: '9px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13, textAlign: 'left' },
-  sectionLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: '#666', marginTop: 8 },
+  app: { display: 'flex', height: '100vh', background: '#faf9f7', color: INK,
+         fontFamily: SANS, overflow: 'hidden' },
+  sidebar: { width: 250, background: '#f3f1ed', borderRight: '1px solid #e5e1da',
+             display: 'flex', flexDirection: 'column', padding: 18, gap: 14 },
+  brand: { fontFamily: SERIF, fontSize: 17, fontWeight: 500, letterSpacing: -0.2 },
+  newChat: { background: '#fff', border: '1px solid #e0dcd4', color: INK, padding: '9px 12px',
+             borderRadius: 8, cursor: 'pointer', fontSize: 13, textAlign: 'left' },
+  sectionLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.7,
+                  color: '#8b857c', marginTop: 6 },
   docList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 },
-  empty: { fontSize: 12, color: '#555', padding: '8px 4px' },
+  empty: { fontSize: 12.5, color: '#a39d93', padding: '6px 2px' },
   docItem: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px',
-             borderRadius: 6, background: '#171717' },
+             borderRadius: 7, background: '#fff', border: '1px solid #eae6df' },
   docInfo: { flex: 1, minWidth: 0 },
-  docName: { fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  docMeta: { fontSize: 10, color: '#666', marginTop: 2 },
-  removeBtn: { background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, padding: 0 },
-  uploadBtn: { background: '#e8a33d', border: 'none', color: '#111', padding: '10px',
-               borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
+  docName: { fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  docMeta: { fontSize: 10.5, color: '#a39d93', marginTop: 2 },
+  removeBtn: { background: 'none', border: 'none', color: '#b3ada3', cursor: 'pointer',
+               fontSize: 16, padding: 0, lineHeight: 1 },
+  uploadBtn: { background: ACCENT, border: 'none', color: '#fff', padding: '10px',
+               borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
   welcome: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
              justifyContent: 'center', padding: 24 },
-  logoLarge: { width: 44, height: 44, borderRadius: '50%', background: '#e8a33d', color: '#111',
-               display: 'grid', placeItems: 'center', fontWeight: 700, marginBottom: 20 },
-  h1: { fontSize: 30, fontWeight: 600, margin: 0 },
-  sub: { fontSize: 15, color: '#888', marginTop: 8, marginBottom: 32 },
-  cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-           gap: 12, maxWidth: 780, width: '100%' },
-  card: { background: '#161616', border: '1px solid #242424', borderRadius: 10, padding: 16,
-          textAlign: 'left', cursor: 'pointer', color: '#e8e8e8' },
-  cardTitle: { fontSize: 14, fontWeight: 500 },
-  cardSub: { fontSize: 12, color: '#777', marginTop: 4 },
-  chat: { flex: 1, overflowY: 'auto', padding: '32px 24px', display: 'flex',
-          flexDirection: 'column', gap: 28 },
-  msgRow: { display: 'flex', gap: 14, maxWidth: 760, width: '100%', margin: '0 auto' },
-  avatarUser: { width: 28, height: 28, borderRadius: '50%', background: '#2a2a2a', flexShrink: 0,
-                display: 'grid', placeItems: 'center', fontSize: 10, color: '#aaa' },
-  avatarBot: { width: 28, height: 28, borderRadius: '50%', background: '#e8a33d', color: '#111',
-               flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 700 },
-  msgBody: { flex: 1, minWidth: 0 },
-  msgText: { fontSize: 15, lineHeight: 1.65, whiteSpace: 'pre-wrap' },
-  sources: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  sourceTag: { fontSize: 11, background: '#1c1c1c', border: '1px solid #2a2a2a',
-               padding: '3px 8px', borderRadius: 4, color: '#999' },
-  thinking: { fontSize: 14, color: '#666', paddingTop: 4 },
-  composerWrap: { padding: '0 24px 20px' },
-  composer: { display: 'flex', alignItems: 'center', gap: 8, maxWidth: 760, margin: '0 auto',
-              background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 24, padding: '6px 6px 6px 18px' },
+  h1: { fontFamily: SERIF, fontSize: 34, fontWeight: 400, margin: 0, letterSpacing: -0.5 },
+  sub: { fontSize: 15, color: MUTED, marginTop: 10, marginBottom: 36 },
+  cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+           gap: 10, maxWidth: 700, width: '100%' },
+  card: { background: '#fff', border: '1px solid #e8e4dd', borderRadius: 10, padding: '14px 16px',
+          textAlign: 'left', cursor: 'pointer', color: INK, fontSize: 13.5, lineHeight: 1.45 },
+  chat: { flex: 1, overflowY: 'auto', padding: '36px 24px', display: 'flex',
+          flexDirection: 'column', gap: 26 },
+  userRow: { maxWidth: 720, width: '100%', margin: '0 auto', display: 'flex', justifyContent: 'flex-end' },
+  userBubble: { background: '#f0ece5', padding: '11px 16px', borderRadius: 14,
+                fontSize: 15, lineHeight: 1.55, maxWidth: '80%' },
+  botRow: { maxWidth: 720, width: '100%', margin: '0 auto' },
+  botText: { fontSize: 15.5, lineHeight: 1.72, whiteSpace: 'pre-wrap' },
+  sources: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 },
+  sourceTag: { fontSize: 11, background: '#f3f1ed', border: '1px solid #e5e1da',
+               padding: '3px 9px', borderRadius: 4, color: MUTED },
+  thinking: { fontSize: 14.5, color: '#a39d93' },
+  composerWrap: { padding: '0 24px 22px' },
+  composer: { display: 'flex', alignItems: 'center', gap: 8, maxWidth: 720, margin: '0 auto',
+              background: '#fff', border: '1px solid #e0dcd4', borderRadius: 26,
+              padding: '5px 5px 5px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' },
   input: { flex: 1, background: 'transparent', border: 'none', outline: 'none',
-           color: '#e8e8e8', fontSize: 15, padding: '10px 0' },
-  sendBtn: { width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#e8a33d',
-             color: '#111', cursor: 'pointer', fontSize: 16, flexShrink: 0 },
-  disclaimer: { textAlign: 'center', fontSize: 11, color: '#555', marginTop: 10 },
-  toast: { position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-           background: '#1c1c1c', border: '1px solid #333', padding: '10px 18px',
-           borderRadius: 8, fontSize: 13 },
+           color: INK, fontSize: 15, padding: '11px 0' },
+  sendBtn: { width: 34, height: 34, borderRadius: '50%', border: 'none', background: ACCENT,
+             color: '#fff', cursor: 'pointer', fontSize: 15, flexShrink: 0 },
+  disclaimer: { textAlign: 'center', fontSize: 11.5, color: '#a39d93', marginTop: 11 },
+  toast: { position: 'fixed', bottom: 26, left: '50%', transform: 'translateX(-50%)',
+           background: INK, color: '#faf9f7', padding: '10px 18px', borderRadius: 8, fontSize: 13 },
 };
