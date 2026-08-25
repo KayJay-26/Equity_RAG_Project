@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import Login from './Login';
 
 const API = 'http://localhost:8000';
 
 export default function App() {
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('email'));
   const [documents, setDocuments] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -13,9 +16,26 @@ export default function App() {
   const fileRef = useRef(null);
   const endRef = useRef(null);
 
+  const authHeader = { Authorization: `Bearer ${token}` };
+
+  const handleAuth = (newToken, email) => {
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('email', email);
+    setToken(newToken);
+    setUserEmail(email);
+  };
+
+  const logout = () => {
+    localStorage.clear();
+    setToken(null);
+    setUserEmail(null);
+    setMessages([]);
+    setDocuments([]);
+  };
+
   const loadDocuments = async () => {
     try {
-      const res = await fetch(`${API}/documents`);
+      const res = await fetch(`${API}/documents`, { headers: authHeader });
       const data = await res.json();
       setDocuments(data.documents);
     } catch {
@@ -23,7 +43,7 @@ export default function App() {
     }
   };
 
-  useEffect(() => { loadDocuments(); }, []);
+  useEffect(() => { if (token) loadDocuments(); }, [token]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
   const showToast = (msg) => {
@@ -37,7 +57,11 @@ export default function App() {
     const form = new FormData();
     form.append('file', file);
     try {
-      const res = await fetch(`${API}/upload`, { method: 'POST', body: form });
+      const res = await fetch(`${API}/upload`, {
+        method: 'POST',
+        headers: authHeader,
+        body: form,
+      });
       const data = await res.json();
       if (!res.ok) showToast(data.detail || 'Upload failed');
       else {
@@ -52,7 +76,10 @@ export default function App() {
   };
 
   const removeDoc = async (filename) => {
-    await fetch(`${API}/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    await fetch(`${API}/documents/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+      headers: authHeader,
+    });
     showToast(`Removed ${filename}`);
     loadDocuments();
   };
@@ -70,7 +97,7 @@ export default function App() {
     try {
       const res = await fetch(`${API}/ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ query: q }),
       });
       const data = await res.json();
@@ -80,6 +107,8 @@ export default function App() {
     }
     setLoading(false);
   };
+
+  if (!token) return <Login onAuth={handleAuth} />;
 
   const suggestions = [
     'What was the revenue growth this year?',
@@ -119,6 +148,12 @@ export default function App() {
         <button style={S.uploadBtn} onClick={() => fileRef.current?.click()} disabled={uploading}>
           {uploading ? 'Indexing…' : 'Upload PDF'}
         </button>
+
+        <div style={{ borderTop: '1px solid #e5e1da', paddingTop: 12, marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: '#6b665f', marginBottom: 8, overflow: 'hidden',
+                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
+          <button style={{ ...S.newChat, width: '100%', fontSize: 12.5 }} onClick={logout}>Sign out</button>
+        </div>
       </aside>
 
       <main style={S.main}>
@@ -146,20 +181,20 @@ export default function App() {
               ) : (
                 <div key={i} style={S.botRow}>
                   <div style={{ ...S.botText, color: m.error ? '#b4483c' : '#2c2925' }}>
-  <ReactMarkdown
-    components={{
-      p: ({children}) => <p style={{margin: '0 0 12px 0'}}>{children}</p>,
-      ul: ({children}) => <ul style={{margin: '0 0 12px 0', paddingLeft: 22}}>{children}</ul>,
-      li: ({children}) => <li style={{marginBottom: 6}}>{children}</li>,
-      strong: ({children}) => <strong style={{fontWeight: 600}}>{children}</strong>,
-      h1: ({children}) => <h3 style={{fontSize: 17, margin: '16px 0 8px'}}>{children}</h3>,
-      h2: ({children}) => <h3 style={{fontSize: 16, margin: '16px 0 8px'}}>{children}</h3>,
-      h3: ({children}) => <h3 style={{fontSize: 15, margin: '14px 0 8px'}}>{children}</h3>,
-    }}
-  >
-    {m.text}
-  </ReactMarkdown>
-</div>
+                    <ReactMarkdown
+                      components={{
+                        p: ({children}) => <p style={{margin: '0 0 12px 0'}}>{children}</p>,
+                        ul: ({children}) => <ul style={{margin: '0 0 12px 0', paddingLeft: 22}}>{children}</ul>,
+                        li: ({children}) => <li style={{marginBottom: 6}}>{children}</li>,
+                        strong: ({children}) => <strong style={{fontWeight: 600}}>{children}</strong>,
+                        h1: ({children}) => <h3 style={{fontSize: 17, margin: '16px 0 8px'}}>{children}</h3>,
+                        h2: ({children}) => <h3 style={{fontSize: 16, margin: '16px 0 8px'}}>{children}</h3>,
+                        h3: ({children}) => <h3 style={{fontSize: 15, margin: '14px 0 8px'}}>{children}</h3>,
+                      }}
+                    >
+                      {m.text}
+                    </ReactMarkdown>
+                  </div>
                   {m.sources?.length > 0 && (
                     <div style={S.sources}>
                       {m.sources.map((s) => <span key={s} style={S.sourceTag}>{s}</span>)}
@@ -235,7 +270,7 @@ const S = {
   userBubble: { background: '#f0ece5', padding: '11px 16px', borderRadius: 14,
                 fontSize: 15, lineHeight: 1.55, maxWidth: '80%' },
   botRow: { maxWidth: 720, width: '100%', margin: '0 auto' },
-  botText: { fontSize: 15.5, lineHeight: 1.72, whiteSpace: 'pre-wrap' },
+  botText: { fontSize: 15.5, lineHeight: 1.72 },
   sources: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 },
   sourceTag: { fontSize: 11, background: '#f3f1ed', border: '1px solid #e5e1da',
                padding: '3px 9px', borderRadius: 4, color: MUTED },
