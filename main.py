@@ -13,6 +13,12 @@ from auth import (
     User, UserCredentials, TokenResponse, get_db, get_current_user,
     hash_password, verify_password, create_access_token,
 )
+import hashlib
+import json
+import redis
+
+redis_client = redis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+CACHE_TTL = 60 * 60 * 24  # cached answers expire after 24 hours
 
 load_dotenv()
 
@@ -72,21 +78,54 @@ def index_document(filename, text, owner, batch_size=64):
     return len(chunks)
 
 
-def retrieve(query, owner, n_results=5):
-    """Search only chunks belonging to this user — enforced at the DB query level."""
-    results = collection.query(
-        query_embeddings=[embed_model.encode(query).tolist()],
-        n_results=n_results,
-        where={"owner": owner},
-    )
-    return results['documents'][0], results['metadatas'][0]
+def retrieve(query, owner, per_doc=3):
+    """
+    Retrieve top chunks PER document owned by this user, so cross-document
+    comparison questions get context from every document, not just the
+    single closest-matching one.
+    """
+    # Find which documents this user has
+    all_items = collection.get(where={"owner": owner}, include=["metadatas"])
+    filenames = sorted({m["source_file"] for m in all_items["metadatas"]})
 
+    if not filenames:
+        return [], []
+
+    query_embedding = embed_model.encode(query).tolist()
+    all_docs, all_metas = [], []
+
+    for fname in filenames:
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=per_doc,
+            where={"$and": [{"owner": owner}, {"source_file": fname}]},
+        )
+        if results["documents"] and results["documents"][0]:
+            all_docs.extend(results["documents"][0])
+            all_metas.extend(results["metadatas"][0])
+
+    return all_docs, all_metas
+
+
+import time
 
 def generate_answer(query, owner):
+    start = time.perf_counter()
+    cache_key = "ans:" + hashlib.sha256(f"{owner}::{query}".encode()).hexdigest()
+
+    try:
+        cached = redis_client.get(cache_key)
+        if cached:
+            data = json.loads(cached)
+            elapsed = (time.perf_counter() - start) * 1000
+            print(f"[CACHE HIT]  {elapsed:.1f}ms  — query: {query!r}")
+            return data["answer"], data["sources"]
+    except Exception as e:
+        print(f"[REDIS ERROR on read] {e}")
+
     chunks, metadatas = retrieve(query, owner)
     if not chunks:
         return "No documents indexed yet. Upload a PDF first.", []
-    
 
     labeled_context = "\n\n".join(
         f"[Source: {metadatas[i]['source_file']}, chunk {metadatas[i]['chunk_index']}]\n{chunks[i]}"
@@ -110,6 +149,15 @@ Answer:"""
     )
 
     sources = sorted({m['source_file'] for m in metadatas})
+
+    try:
+        redis_client.setex(cache_key, CACHE_TTL, json.dumps({"answer": response.text, "sources": sources}))
+    except Exception as e:
+        print(f"[REDIS ERROR on write] {e}")
+
+    elapsed = (time.perf_counter() - start) * 1000
+    print(f"[CACHE MISS] {elapsed:.1f}ms  — query: {query!r}")
+
     return response.text, sources
 
 
