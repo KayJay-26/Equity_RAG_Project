@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import Login from './Login';
+import Login from './login';
 
 const API = 'http://localhost:8000';
 
