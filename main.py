@@ -16,11 +16,19 @@ from auth import (
 import hashlib
 import json
 import redis
+load_dotenv()
+
+print("REDIS_URL =", os.getenv("REDIS_URL"))
 
 redis_client = redis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
 CACHE_TTL = 60 * 60 * 24  # cached answers expire after 24 hours
 
-load_dotenv()
+try:
+    print("PING:", redis_client.ping())
+except Exception as e:
+    print(type(e).__name__, e)
+
+
 
 app = FastAPI()
 
